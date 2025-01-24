@@ -67,6 +67,7 @@
             {
               env,
               createTmpDir ? false,
+              runShellHook ? true,
             }:
             let
               savedVars = [
@@ -131,8 +132,10 @@
                     export ${tmp}="$NIX_BUILD_TOP"
                   '')
                 )
-                + ''
+                + lib.optionalString runShellHook ''
                   eval "''${shellHook:-}"
+                ''
+                + ''
                   }
                 '';
               rewritesFrom = map ({ from, ... }: from) rewrites;
@@ -147,12 +150,18 @@
 
           mkBuilders = pkgs: rec {
             writeDevshellApplication =
-              { shell, text, ... }@args:
+              {
+                shell,
+                text,
+                rcScriptConfigs,
+                ...
+              }@args:
               let
-                rcScript = rcScriptFromDrv { drv = shell; };
+                rcScript = rcScriptFromDrv ({ drv = shell; } // rcScriptConfigs);
                 rest = lib.removeAttrs args [
                   "shell"
                   "text"
+                  "rcScriptConfigs"
                 ];
               in
               pkgs.writeShellApplication (

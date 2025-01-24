@@ -111,6 +111,8 @@
               rewrites = [ ];
               script =
                 ''
+                  # shellcheck disable=all
+                  {
                   unset shellHook
                 ''
                 + forEachSavedVars (name: ''
@@ -131,6 +133,7 @@
                 )
                 + ''
                   eval "''${shellHook:-}"
+                  }
                 '';
               rewritesFrom = map ({ from, ... }: from) rewrites;
               rewritesTo = map ({ to, ... }: to) rewrites;
@@ -150,9 +153,23 @@
         helloWithStructuredAttrs = pkgs.hello.overrideAttrs { __structuredAttrs = true; };
         helloShell = pkgs.mkShell { nativeBuildInputs = [ pkgs.hello ]; };
         helloBashRc = self.lib.rcScriptFromDrv { drv = helloShell; };
+        helloHelp = pkgs.writeShellScriptBin "hello-help" ''
+          ${helloBashRc}
+          hello --help
+        '';
+        helloHelpApp = pkgs.writeShellApplication {
+          name = "hello-help-app";
+          text = ''
+            ${helloBashRc}
+            hello --help
+          '';
+        };
       in
       {
         inherit helloBashRc;
+        packages = {
+          inherit helloHelp helloHelpApp;
+        };
       }
     ));
 }

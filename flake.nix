@@ -144,12 +144,34 @@
           rcScriptFromDrv =
             { drv, ... }@args:
             rcScriptFromEnv ({ env = buildEnvFromDrv drv; } // (lib.removeAttrs args [ "drv" ]));
+
+          mkBuilders = pkgs: rec {
+            writeDevshellApplication =
+              { shell, text, ... }@args:
+              let
+                rcScript = rcScriptFromDrv { drv = shell; };
+                rest = lib.removeAttrs args [
+                  "shell"
+                  "text"
+                ];
+              in
+              pkgs.writeShellApplication (
+                rest
+                // {
+                  text = ''
+                    ${rcScript}
+                    ${text}
+                  '';
+                }
+              );
+          };
         };
     }
     // (flake-utils.lib.eachDefaultSystem (
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        builders = self.lib.mkBuilders pkgs;
         helloWithStructuredAttrs = pkgs.hello.overrideAttrs { __structuredAttrs = true; };
         helloShell = pkgs.mkShell { nativeBuildInputs = [ pkgs.hello ]; };
         helloBashRc = self.lib.rcScriptFromDrv { drv = helloShell; };
@@ -157,12 +179,12 @@
           ${helloBashRc}
           hello --help
         '';
-        helloHelpApp = pkgs.writeShellApplication {
+        helloHelpApp = builders.writeDevshellApplication {
           name = "hello-help-app";
           text = ''
-            ${helloBashRc}
             hello --help
           '';
+          shell = helloShell;
         };
       in
       {
